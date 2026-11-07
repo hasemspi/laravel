@@ -11,15 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('modules', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('course_id')->constrained()->cascadeOnDelete();
-            $table->string('title', 180);
-            $table->text('description')->nullable();
-            $table->unsignedInteger('sort_order')->default(1);
-            $table->timestamps();
-            $table->unique(['course_id', 'sort_order']);
-        });
+        // Course modules are stored in course_modules by the consolidated LMS migration.
     }
 
     /**
@@ -27,6 +19,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('modules');
+        // Retained as a no-op so this legacy migration cannot drop LMS data.
     }
 };

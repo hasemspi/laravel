@@ -11,20 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('courses', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('course_category_id')->nullable()->constrained('course_categories')->nullOnDelete();
-            $table->string('title', 180);
-            $table->string('slug', 200)->unique();
-            $table->text('short_description');
-            $table->longText('description')->nullable();
-            $table->decimal('price', 10, 2)->default(0);
-            $table->unsignedInteger('duration_minutes')->nullable();
-            $table->string('thumbnail_path')->nullable();
-            $table->json('benefits')->nullable();
-            $table->enum('status', ['draft', 'published', 'archived'])->default('draft')->index();
-            $table->timestamps();
-        });
+        // Course schema is owned by the consolidated LMS migration
+        // 2026_11_07_100000_create_lms_course_tables.
     }
 
     /**
@@ -32,6 +20,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('courses');
+        // Retained as a no-op so this legacy migration cannot drop LMS data.
     }
 };

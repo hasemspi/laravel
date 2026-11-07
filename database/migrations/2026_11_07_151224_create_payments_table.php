@@ -11,22 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('payments', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('user_id')->nullable()->constrained()->nullOnDelete();
-            $table->foreignId('course_id')->constrained()->cascadeOnDelete();
-            $table->string('student_name', 100);
-            $table->string('student_email', 150)->index();
-            $table->string('student_mobile', 30);
-            $table->decimal('amount', 10, 2);
-            $table->string('payment_method', 32)->default('bkash_manual');
-            $table->string('transaction_id', 100)->unique();
-            $table->enum('status', ['pending', 'verified', 'rejected', 'refunded'])->default('pending')->index();
-            $table->foreignId('verified_by')->nullable()->constrained('users')->nullOnDelete();
-            $table->timestamp('verified_at')->nullable();
-            $table->text('review_note')->nullable();
-            $table->timestamps();
-        });
+        // Payment schema is owned by the consolidated LMS learning migration.
     }
 
     /**
@@ -34,6 +19,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('payments');
+        // Retained as a no-op so this legacy migration cannot drop LMS data.
     }
 };

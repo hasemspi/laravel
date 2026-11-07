@@ -43,7 +43,7 @@ class StudentLearningController extends Controller
     private function isUnlocked(int $userId, int $courseId, Lesson $lesson): bool
     {
         if ($lesson->unlock_type === 'immediate') return true;
-        $lessons = Lesson::query()->whereHas('module', fn ($query) => $query->where('course_id', $courseId))->where('is_published', true)->with('module:id,course_id')->get()->sortBy(fn ($item) => sprintf('%010d:%010d', $item->module->sort_order, $item->sort_order))->values();
+        $lessons = Lesson::query()->whereHas('module', fn ($query) => $query->where('course_id', $courseId))->where('is_published', true)->with('module:id,course_id,sort_order')->get()->sortBy(fn ($item) => sprintf('%010d:%010d', $item->module->sort_order, $item->sort_order))->values();
         $index = $lessons->search(fn ($item) => $item->id === $lesson->id);
         $previous = $index !== false && $index > 0 ? $lessons->get($index - 1) : null;
         $previousProgress = $previous ? LessonProgress::query()->where('user_id', $userId)->where('lesson_id', $previous->id)->where('is_completed', true)->first() : null;

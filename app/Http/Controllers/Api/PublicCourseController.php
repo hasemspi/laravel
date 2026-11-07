@@ -36,7 +36,8 @@ class PublicCourseController extends Controller
     {
         return [
             'id' => $course->id, 'title' => $course->title, 'slug' => $course->slug, 'short_description' => $course->short_description,
-            'description' => $course->description, 'price' => $course->price, 'duration_minutes' => $course->duration_minutes,
+            'description' => $course->description, 'price' => $course->price, 'discount_price' => $course->discount_price,
+            'level' => $course->level, 'is_featured' => $course->is_featured, 'duration_minutes' => $course->duration_minutes,
             'thumbnail_path' => $course->thumbnail_path, 'benefits' => $course->benefits, 'category' => $course->category, 'trainers' => $course->trainers,
             'modules' => $course->modules->map(fn ($module) => ['id' => $module->id, 'title' => $module->title, 'description' => $module->description, 'lessons' => $module->lessons->map(fn ($lesson) => ['id' => $lesson->id, 'title' => $lesson->title, 'description' => $lesson->description, 'duration_seconds' => $lesson->duration_seconds, 'thumbnail_path' => $lesson->thumbnail_path])]),
         ];

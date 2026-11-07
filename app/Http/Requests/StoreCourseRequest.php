@@ -17,13 +17,16 @@ class StoreCourseRequest extends FormRequest
             'short_description' => ['required', 'string', 'max:1000'],
             'description' => ['nullable', 'string', 'max:50000'],
             'price' => ['required', 'numeric', 'min:0', 'max:99999999.99'],
+            'discount_price' => ['nullable', 'numeric', 'min:0', 'max:99999999.99', 'lte:price'],
+            'level' => ['required', Rule::in(['beginner', 'intermediate', 'advanced', 'all_levels'])],
             'duration_minutes' => ['nullable', 'integer', 'min:1', 'max:100000'],
             'thumbnail_path' => ['nullable', 'string', 'max:2048'],
             'benefits' => ['nullable', 'array', 'max:30'],
             'benefits.*' => ['string', 'max:300'],
             'status' => ['required', Rule::in(['draft', 'published', 'archived'])],
+            'is_featured' => ['sometimes', 'boolean'],
             'trainer_ids' => ['sometimes', 'array'],
-            'trainer_ids.*' => ['integer', Rule::exists('users', 'id')->where('role', 'trainer')],
+            'trainer_ids.*' => ['integer', 'distinct', Rule::exists('users', 'id')->where('role', 'trainer')],
         ];
     }
 }

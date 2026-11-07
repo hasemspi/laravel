@@ -29,7 +29,7 @@ class CheckoutController extends Controller
             if ($user->role !== 'student') abort(422, 'This email belongs to a non-student account.');
             return Payment::query()->create([
                 'user_id' => $user->id, 'course_id' => $course->id, 'student_name' => $data['name'],
-                'student_email' => $email, 'student_mobile' => $data['mobile'], 'amount' => $course->price,
+                'student_email' => $email, 'student_mobile' => $data['mobile'], 'amount' => $course->discount_price ?? $course->price,
                 'transaction_id' => $data['transaction_id'], 'status' => 'pending',
             ]);
         });

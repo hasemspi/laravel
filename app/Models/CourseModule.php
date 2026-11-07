@@ -8,8 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class CourseModule extends Model
 {
-    protected $table = 'modules';
     protected $fillable = ['course_id', 'title', 'description', 'sort_order'];
     public function course(): BelongsTo { return $this->belongsTo(Course::class); }
-    public function lessons(): HasMany { return $this->hasMany(Lesson::class, 'module_id'); }
+    public function lessons(): HasMany { return $this->hasMany(Lesson::class); }
 }

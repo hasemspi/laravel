@@ -8,25 +8,11 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('lesson_progress', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('course_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('module_id')->constrained('modules')->cascadeOnDelete();
-            $table->foreignId('lesson_id')->constrained('video_lessons')->cascadeOnDelete();
-            $table->unsignedInteger('watched_seconds')->default(0);
-            $table->unsignedInteger('video_duration_seconds')->nullable();
-            $table->unsignedTinyInteger('progress_percent')->default(0);
-            $table->boolean('is_completed')->default(false)->index();
-            $table->timestamp('last_watched_at')->nullable();
-            $table->timestamp('completed_at')->nullable();
-            $table->timestamps();
-            $table->unique(['user_id', 'lesson_id']);
-        });
+        // Lesson progress is owned by the consolidated LMS learning migration.
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('lesson_progress');
+        // Retained as a no-op so this legacy migration cannot drop LMS data.
     }
 };
