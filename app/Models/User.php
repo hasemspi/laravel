@@ -9,6 +9,8 @@ use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable(['name', 'email', 'password', 'role', 'status'])]
 #[Hidden(['password', 'remember_token'])]
@@ -30,5 +32,15 @@ class User extends Authenticatable
             'role' => 'string',
             'status' => 'string',
         ];
+    }
+
+    public function assignedCourses(): BelongsToMany
+    {
+        return $this->belongsToMany(Course::class, 'course_trainer')->withTimestamps();
+    }
+
+    public function enrollments(): HasMany
+    {
+        return $this->hasMany(Enrollment::class);
     }
 }

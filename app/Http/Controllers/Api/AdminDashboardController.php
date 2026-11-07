@@ -4,6 +4,9 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Models\Course;
+use App\Models\Enrollment;
+use App\Models\Payment;
 use Illuminate\Http\JsonResponse;
 
 class AdminDashboardController extends Controller
@@ -42,14 +45,19 @@ class AdminDashboardController extends Controller
                 'pending_approvals' => User::query()->where('status', 'pending')->count(),
                 'trainers' => User::query()->where('role', 'trainer')->count(),
                 'administrators' => User::query()->where('role', 'admin')->count(),
+                'courses' => Course::query()->count(),
+                'active_enrollments' => Enrollment::query()->where('status', 'active')->count(),
+                'pending_payments' => Payment::query()->where('status', 'pending')->count(),
+                'verified_payments' => Payment::query()->where('status', 'verified')->count(),
+                'total_revenue' => Payment::query()->where('status', 'verified')->sum('amount'),
             ],
             'student_registrations' => $studentRegistrations,
             'recent_students' => $recentStudents,
             'data_availability' => [
                 'users' => true,
-                'courses' => false,
-                'enrollments' => false,
-                'finance' => false,
+                'courses' => true,
+                'enrollments' => true,
+                'finance' => true,
                 'cms' => false,
             ],
         ]);
