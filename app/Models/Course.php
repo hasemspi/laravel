@@ -18,4 +18,5 @@ class Course extends Model
     public function trainers(): BelongsToMany { return $this->belongsToMany(User::class, 'course_trainer')->withTimestamps(); }
     public function modules(): HasMany { return $this->hasMany(CourseModule::class); }
     public function enrollments(): HasMany { return $this->hasMany(Enrollment::class); }
+    public function payments(): HasMany { return $this->hasMany(Payment::class); }
 }

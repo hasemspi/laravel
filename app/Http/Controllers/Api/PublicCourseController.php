@@ -29,7 +29,7 @@ class PublicCourseController extends Controller
 
     public function categories(): JsonResponse
     {
-        return response()->json(['categories' => CourseCategory::query()->where('is_active', true)->orderBy('name')->get(['id', 'name', 'slug', 'description'])]);
+        return response()->json(['categories' => CourseCategory::query()->where('status', 'active')->orderBy('name')->get(['id', 'name', 'slug', 'description', 'icon', 'status'])]);
     }
 
     private function courseData(Course $course): array

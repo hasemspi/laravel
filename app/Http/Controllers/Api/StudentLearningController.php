@@ -15,7 +15,7 @@ class StudentLearningController extends Controller
     public function dashboard(Request $request): JsonResponse
     {
         $user = $request->user();
-        $enrollments = Enrollment::query()->with('course:id,title,slug,thumbnail_path')->where('user_id', $user->id)->where('status', 'active')->latest('enrolled_at')->get();
+        $enrollments = Enrollment::query()->with('course:id,title,slug,short_description,thumbnail_path,duration_minutes')->where('user_id', $user->id)->where('status', 'active')->latest('enrolled_at')->get();
         $completed = LessonProgress::query()->where('user_id', $user->id)->where('is_completed', true)->count();
         $started = LessonProgress::query()->where('user_id', $user->id)->count();
         return response()->json(['stats' => ['enrolled_courses' => $enrollments->count(), 'completed_lessons' => $completed, 'overall_progress_percent' => $started ? (int) round(($completed / $started) * 100) : 0], 'courses' => $enrollments]);
@@ -24,6 +24,32 @@ class StudentLearningController extends Controller
     public function courses(Request $request): JsonResponse
     {
         return response()->json(['courses' => Enrollment::query()->with('course:id,title,slug,short_description,thumbnail_path,duration_minutes')->where('user_id', $request->user()->id)->where('status', 'active')->latest('enrolled_at')->get()]);
+    }
+
+    public function course(Request $request, Course $course): JsonResponse
+    {
+        $enrollment = $this->enrollmentFor($request, $course);
+        $course->load(['modules' => fn ($query) => $query->orderBy('sort_order'), 'modules.lessons' => fn ($query) => $query->where('is_published', true)->orderBy('sort_order')]);
+
+        return response()->json([
+            'course' => [
+                'id' => $course->id,
+                'title' => $course->title,
+                'slug' => $course->slug,
+                'short_description' => $course->short_description,
+                'modules' => $course->modules->map(fn ($module) => [
+                    'id' => $module->id,
+                    'title' => $module->title,
+                    'description' => $module->description,
+                    'lessons' => $module->lessons->map(fn ($lesson) => [
+                        'id' => $lesson->id,
+                        'title' => $lesson->title,
+                        'duration_seconds' => $lesson->duration_seconds,
+                    ]),
+                ]),
+            ],
+            'enrollment' => ['id' => $enrollment->id, 'status' => $enrollment->status, 'enrolled_at' => $enrollment->enrolled_at],
+        ]);
     }
 
     public function lesson(Request $request, Lesson $lesson): JsonResponse

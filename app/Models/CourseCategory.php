@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class CourseCategory extends Model
 {
-    protected $fillable = ['name', 'slug', 'description', 'is_active'];
+    protected $fillable = ['name', 'slug', 'description', 'icon', 'status', 'is_active'];
 
     protected function casts(): array { return ['is_active' => 'boolean']; }
 
