@@ -35,6 +35,7 @@ Route::middleware(['auth:sanctum', 'role:student'])->get('/student/me', [Account
 Route::middleware(['auth:sanctum', 'role:student'])->get('/student/dashboard', [StudentLearningController::class, 'dashboard']);
 Route::middleware(['auth:sanctum', 'role:student'])->get('/student/courses', [StudentLearningController::class, 'courses']);
 Route::middleware(['auth:sanctum', 'role:student'])->get('/student/courses/{course}', [StudentLearningController::class, 'course']);
+Route::middleware(['auth:sanctum', 'role:student'])->get('/student/courses/{course}/access', [StudentLearningController::class, 'access']);
 Route::middleware(['auth:sanctum', 'role:student'])->get('/student/lessons/{lesson}', [StudentLearningController::class, 'lesson']);
 Route::middleware(['auth:sanctum', 'role:student'])->post('/student/lessons/{lesson}/progress', [StudentLearningController::class, 'updateProgress']);
 Route::middleware(['auth:sanctum', 'role:student'])->get('/student/courses/{course}/rating', [CourseRatingController::class, 'show']);

@@ -7,6 +7,7 @@ use App\Models\Course;
 use App\Models\Enrollment;
 use App\Models\Lesson;
 use App\Models\LessonProgress;
+use App\Models\Payment;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -15,15 +16,50 @@ class StudentLearningController extends Controller
     public function dashboard(Request $request): JsonResponse
     {
         $user = $request->user();
-        $enrollments = Enrollment::query()->with('course:id,title,slug,short_description,thumbnail_path,duration_minutes')->where('user_id', $user->id)->where('status', 'active')->latest('enrolled_at')->get();
-        $completed = LessonProgress::query()->where('user_id', $user->id)->where('is_completed', true)->count();
-        $total = Lesson::query()->where('is_published', true)->whereHas('module', fn ($query) => $query->whereIn('course_id', $enrollments->pluck('course_id')))->count();
+        $enrollments = Enrollment::query()->with('course:id,title,slug,short_description,thumbnail_path,duration_minutes')->where('user_id', $user->id)->whereIn('status', ['active', 'completed'])->latest('enrolled_at')->get();
+        $courseIds = $enrollments->pluck('course_id');
+        $lessons = Lesson::query()->where('is_published', true)->whereHas('module', fn ($query) => $query->whereIn('course_id', $courseIds))->with('module:id,course_id')->get(['id', 'course_module_id']);
+        $totalByCourse = $lessons->groupBy(fn ($lesson) => $lesson->module->course_id)->map->count();
+        $completedByCourse = LessonProgress::query()->where('user_id', $user->id)->whereIn('course_id', $courseIds)->where('is_completed', true)->selectRaw('course_id, COUNT(*) as completed_count')->groupBy('course_id')->pluck('completed_count', 'course_id');
+        $enrollments->each(function (Enrollment $enrollment) use ($totalByCourse, $completedByCourse): void {
+            $total = (int) ($totalByCourse[$enrollment->course_id] ?? 0);
+            $completed = (int) ($completedByCourse[$enrollment->course_id] ?? 0);
+            $enrollment->setAttribute('progress', ['completed_lessons' => $completed, 'total_lessons' => $total, 'percent' => $total ? (int) round(($completed / $total) * 100) : 0]);
+        });
+        $completed = (int) $completedByCourse->sum();
+        $total = (int) $totalByCourse->sum();
         return response()->json(['stats' => ['enrolled_courses' => $enrollments->count(), 'completed_lessons' => $completed, 'overall_progress_percent' => $total ? (int) round(($completed / $total) * 100) : 0], 'courses' => $enrollments]);
     }
 
     public function courses(Request $request): JsonResponse
     {
-        return response()->json(['courses' => Enrollment::query()->with('course:id,title,slug,short_description,thumbnail_path,duration_minutes')->where('user_id', $request->user()->id)->where('status', 'active')->latest('enrolled_at')->get()]);
+        return response()->json(['courses' => Enrollment::query()->with('course:id,title,slug,short_description,thumbnail_path,duration_minutes')->where('user_id', $request->user()->id)->whereIn('status', ['active', 'completed'])->latest('enrolled_at')->get()]);
+    }
+
+    public function access(Request $request, Course $course): JsonResponse
+    {
+        abort_unless($course->status === 'published', 404);
+        $userId = $request->user()->id;
+        $enrollment = Enrollment::query()->where('user_id', $userId)->where('course_id', $course->id)->first();
+        $payment = Payment::query()->where('user_id', $userId)->where('course_id', $course->id)->latest('id')->first();
+        $status = match (true) {
+            $enrollment?->status === 'completed' => 'completed',
+            $enrollment?->status === 'active' => 'approved',
+            $payment?->status === 'pending' => 'payment_pending',
+            $payment?->status === 'rejected' => 'rejected',
+            $payment?->status === 'refunded' => 'cancelled',
+            $enrollment?->status === 'cancelled' => 'cancelled',
+            default => 'not_enrolled',
+        };
+        return response()->json([
+            'course_id' => $course->id,
+            'status' => $status,
+            'has_access' => in_array($status, ['approved', 'completed'], true),
+            'can_enroll' => in_array($status, ['not_enrolled', 'rejected', 'cancelled'], true),
+            'enrollment' => $enrollment ? ['id' => $enrollment->id, 'status' => $enrollment->status, 'enrolled_at' => $enrollment->enrolled_at, 'completed_at' => $enrollment->completed_at] : null,
+            'payment' => $payment ? ['id' => $payment->id, 'status' => $payment->status, 'verified_at' => $payment->verified_at] : null,
+            'certificate_url' => null,
+        ]);
     }
 
     public function course(Request $request, Course $course): JsonResponse
@@ -74,7 +110,7 @@ class StudentLearningController extends Controller
     {
         $lesson->load('module.course');
         $course = $lesson->module->course;
-        $this->enrollmentFor($request, $course);
+        $enrollment = $this->enrollmentFor($request, $course);
         abort_unless($lesson->is_published, 404);
         abort_unless($this->isUnlocked($request->user()->id, $course->id, $lesson), 423, 'This lesson is locked.');
         $data = $request->validate(['watched_seconds' => ['required', 'integer', 'min:0'], 'video_duration_seconds' => ['nullable', 'integer', 'min:0'], 'progress_percent' => ['nullable', 'integer', 'min:0', 'max:100'], 'is_completed' => ['sometimes', 'boolean']]);
@@ -82,12 +118,19 @@ class StudentLearningController extends Controller
         $percent = $data['progress_percent'] ?? ($duration ? min(100, (int) round(($data['watched_seconds'] / $duration) * 100)) : 0);
         $completed = (bool) ($data['is_completed'] ?? false) || $percent >= 90;
         $progress = LessonProgress::query()->updateOrCreate(['user_id' => $request->user()->id, 'lesson_id' => $lesson->id], ['course_id' => $course->id, 'course_module_id' => $lesson->course_module_id, 'watched_seconds' => $data['watched_seconds'], 'video_duration_seconds' => $duration, 'progress_percent' => $percent, 'is_completed' => $completed, 'last_watched_at' => now(), 'completed_at' => $completed ? now() : null]);
-        return response()->json(['message' => $completed ? 'Lesson completed.' : 'Progress saved.', 'progress' => $progress]);
+        $totalLessons = Lesson::query()->where('is_published', true)->whereHas('module', fn ($query) => $query->where('course_id', $course->id))->count();
+        $completedLessons = LessonProgress::query()->where('user_id', $request->user()->id)->where('course_id', $course->id)->where('is_completed', true)->count();
+        if ($totalLessons > 0 && $completedLessons >= $totalLessons) {
+            $enrollment->update(['status' => 'completed', 'completed_at' => $enrollment->completed_at ?? now()]);
+        } elseif ($enrollment->status === 'completed') {
+            $enrollment->update(['status' => 'active', 'completed_at' => null]);
+        }
+        return response()->json(['message' => $completed ? 'Lesson completed.' : 'Progress saved.', 'progress' => $progress, 'enrollment' => ['status' => $enrollment->fresh()->status]]);
     }
 
     private function enrollmentFor(Request $request, Course $course): Enrollment
     {
-        return Enrollment::query()->where('user_id', $request->user()->id)->where('course_id', $course->id)->where('status', 'active')->firstOr(fn () => abort(403, 'You do not have access to this course.'));
+        return Enrollment::query()->where('user_id', $request->user()->id)->where('course_id', $course->id)->whereIn('status', ['active', 'completed'])->firstOr(fn () => abort(403, 'You do not have access to this course.'));
     }
 
     private function isUnlocked(int $userId, int $courseId, Lesson $lesson): bool
