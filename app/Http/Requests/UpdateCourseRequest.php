@@ -13,7 +13,7 @@ class UpdateCourseRequest extends StoreCourseRequest
         $course = $this->route('course');
         $courseId = $course instanceof Course ? $course->id : $course;
         $rules['slug'] = ['sometimes', 'required', 'string', 'max:200', 'alpha_dash', Rule::unique('courses', 'slug')->ignore($courseId)];
-        foreach (['course_category_id', 'title', 'short_description', 'description', 'price', 'discount_price', 'level', 'duration_minutes', 'thumbnail_path', 'benefits', 'status', 'is_featured'] as $field) {
+        foreach (['course_category_id', 'title', 'short_description', 'description', 'price', 'discount_price', 'level', 'duration_minutes', 'thumbnail_path', 'benefits', 'status', 'is_featured', 'display_student_count', 'display_rating', 'display_review_count'] as $field) {
             array_unshift($rules[$field], 'sometimes');
         }
         return $rules;

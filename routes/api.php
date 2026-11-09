@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\AdminBatchController;
 use App\Http\Controllers\Api\AdminCourseAccessController;
 use App\Http\Controllers\Api\AdminEnrollmentAccessController;
 use App\Http\Controllers\Api\StudentBatchController;
+use App\Http\Controllers\Api\CourseRatingController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('throttle:registration')->post('/register', [RegistrationController::class, 'store']);
@@ -36,6 +37,8 @@ Route::middleware(['auth:sanctum', 'role:student'])->get('/student/courses', [St
 Route::middleware(['auth:sanctum', 'role:student'])->get('/student/courses/{course}', [StudentLearningController::class, 'course']);
 Route::middleware(['auth:sanctum', 'role:student'])->get('/student/lessons/{lesson}', [StudentLearningController::class, 'lesson']);
 Route::middleware(['auth:sanctum', 'role:student'])->post('/student/lessons/{lesson}/progress', [StudentLearningController::class, 'updateProgress']);
+Route::middleware(['auth:sanctum', 'role:student'])->get('/student/courses/{course}/rating', [CourseRatingController::class, 'show']);
+Route::middleware(['auth:sanctum', 'role:student'])->post('/student/courses/{course}/rating', [CourseRatingController::class, 'store']);
 Route::middleware(['auth:sanctum', 'role:student'])->group(function () {
     Route::get('/student/courses/{course}/batches', [StudentBatchController::class, 'batches']);
     Route::get('/student/courses/{course}/batches/{batch}', [StudentBatchController::class, 'batch']);
@@ -85,6 +88,7 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
     Route::post('/admin/courses', [AdminCourseController::class, 'store']);
     Route::get('/admin/courses/{course}', [AdminCourseController::class, 'show']);
     Route::put('/admin/courses/{course}', [AdminCourseController::class, 'update']);
+    Route::post('/admin/courses/{course}/thumbnail', [AdminCourseController::class, 'uploadThumbnail']);
     Route::delete('/admin/courses/{course}', [AdminCourseController::class, 'destroy']);
     Route::get('/admin/courses/{course}/batches', [AdminBatchController::class, 'index']);
     Route::post('/admin/courses/{course}/batches', [AdminBatchController::class, 'store']);

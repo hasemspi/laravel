@@ -25,6 +25,9 @@ class StoreCourseRequest extends FormRequest
             'benefits.*' => ['string', 'max:300'],
             'status' => ['required', Rule::in(['draft', 'published', 'archived'])],
             'is_featured' => ['sometimes', 'boolean'],
+            'display_student_count' => ['nullable', 'integer', 'min:0', 'max:2147483647'],
+            'display_rating' => ['nullable', 'numeric', 'min:0', 'max:5'],
+            'display_review_count' => ['nullable', 'integer', 'min:0', 'max:2147483647'],
             'trainer_ids' => ['sometimes', 'array'],
             'trainer_ids.*' => ['integer', 'distinct', Rule::exists('users', 'id')->where('role', 'trainer')],
         ];
