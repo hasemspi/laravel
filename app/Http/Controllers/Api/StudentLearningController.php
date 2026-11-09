@@ -17,8 +17,8 @@ class StudentLearningController extends Controller
         $user = $request->user();
         $enrollments = Enrollment::query()->with('course:id,title,slug,short_description,thumbnail_path,duration_minutes')->where('user_id', $user->id)->where('status', 'active')->latest('enrolled_at')->get();
         $completed = LessonProgress::query()->where('user_id', $user->id)->where('is_completed', true)->count();
-        $started = LessonProgress::query()->where('user_id', $user->id)->count();
-        return response()->json(['stats' => ['enrolled_courses' => $enrollments->count(), 'completed_lessons' => $completed, 'overall_progress_percent' => $started ? (int) round(($completed / $started) * 100) : 0], 'courses' => $enrollments]);
+        $total = Lesson::query()->where('is_published', true)->whereHas('module', fn ($query) => $query->whereIn('course_id', $enrollments->pluck('course_id')))->count();
+        return response()->json(['stats' => ['enrolled_courses' => $enrollments->count(), 'completed_lessons' => $completed, 'overall_progress_percent' => $total ? (int) round(($completed / $total) * 100) : 0], 'courses' => $enrollments]);
     }
 
     public function courses(Request $request): JsonResponse
@@ -30,6 +30,9 @@ class StudentLearningController extends Controller
     {
         $enrollment = $this->enrollmentFor($request, $course);
         $course->load(['modules' => fn ($query) => $query->orderBy('sort_order'), 'modules.lessons' => fn ($query) => $query->where('is_published', true)->orderBy('sort_order')]);
+        $progress = LessonProgress::query()->where('user_id', $request->user()->id)->where('course_id', $course->id)->get()->keyBy('lesson_id');
+        $lessons = $course->modules->flatMap->lessons;
+        $completed = $lessons->filter(fn ($lesson) => (bool) ($progress[$lesson->id]->is_completed ?? false))->count();
 
         return response()->json([
             'course' => [
@@ -45,10 +48,15 @@ class StudentLearningController extends Controller
                         'id' => $lesson->id,
                         'title' => $lesson->title,
                         'duration_seconds' => $lesson->duration_seconds,
+                        'sort_order' => $lesson->sort_order,
+                        'progress_percent' => (int) ($progress[$lesson->id]->progress_percent ?? 0),
+                        'is_completed' => (bool) ($progress[$lesson->id]->is_completed ?? false),
+                        'is_locked' => ! $this->isUnlocked($request->user()->id, $course->id, $lesson),
                     ]),
                 ]),
             ],
             'enrollment' => ['id' => $enrollment->id, 'status' => $enrollment->status, 'enrolled_at' => $enrollment->enrolled_at],
+            'progress' => ['completed_lessons' => $completed, 'total_lessons' => $lessons->count(), 'percent' => $lessons->count() ? (int) round(($completed / $lessons->count()) * 100) : 0],
         ]);
     }
 
@@ -58,7 +66,23 @@ class StudentLearningController extends Controller
         $course = $lesson->module->course;
         $enrollment = $this->enrollmentFor($request, $course);
         if (! $lesson->is_published || ! $this->isUnlocked($request->user()->id, $course->id, $lesson)) abort(423, 'This lesson is locked.');
-        return response()->json(['lesson' => ['id' => $lesson->id, 'title' => $lesson->title, 'description' => $lesson->description, 'duration_seconds' => $lesson->duration_seconds, 'embed_url' => $lesson->video_reference ? 'https://www.youtube-nocookie.com/embed/'.rawurlencode($lesson->video_reference).'?rel=0&modestbranding=1' : null], 'watermark' => ['email' => $request->user()->email, 'enrollment_id' => $enrollment->id]]);
+        $progress = LessonProgress::query()->where('user_id', $request->user()->id)->where('lesson_id', $lesson->id)->first();
+        return response()->json(['lesson' => ['id' => $lesson->id, 'title' => $lesson->title, 'description' => $lesson->description, 'duration_seconds' => $lesson->duration_seconds, 'embed_url' => $lesson->video_reference ? 'https://www.youtube-nocookie.com/embed/'.rawurlencode($lesson->video_reference).'?rel=0&modestbranding=1' : null], 'progress' => $progress, 'watermark' => ['email' => $request->user()->email, 'enrollment_id' => $enrollment->id]]);
+    }
+
+    public function updateProgress(Request $request, Lesson $lesson): JsonResponse
+    {
+        $lesson->load('module.course');
+        $course = $lesson->module->course;
+        $this->enrollmentFor($request, $course);
+        abort_unless($lesson->is_published, 404);
+        abort_unless($this->isUnlocked($request->user()->id, $course->id, $lesson), 423, 'This lesson is locked.');
+        $data = $request->validate(['watched_seconds' => ['required', 'integer', 'min:0'], 'video_duration_seconds' => ['nullable', 'integer', 'min:0'], 'progress_percent' => ['nullable', 'integer', 'min:0', 'max:100'], 'is_completed' => ['sometimes', 'boolean']]);
+        $duration = $data['video_duration_seconds'] ?? $lesson->duration_seconds;
+        $percent = $data['progress_percent'] ?? ($duration ? min(100, (int) round(($data['watched_seconds'] / $duration) * 100)) : 0);
+        $completed = (bool) ($data['is_completed'] ?? false) || $percent >= 90;
+        $progress = LessonProgress::query()->updateOrCreate(['user_id' => $request->user()->id, 'lesson_id' => $lesson->id], ['course_id' => $course->id, 'course_module_id' => $lesson->course_module_id, 'watched_seconds' => $data['watched_seconds'], 'video_duration_seconds' => $duration, 'progress_percent' => $percent, 'is_completed' => $completed, 'last_watched_at' => now(), 'completed_at' => $completed ? now() : null]);
+        return response()->json(['message' => $completed ? 'Lesson completed.' : 'Progress saved.', 'progress' => $progress]);
     }
 
     private function enrollmentFor(Request $request, Course $course): Enrollment
@@ -73,7 +97,7 @@ class StudentLearningController extends Controller
         $index = $lessons->search(fn ($item) => $item->id === $lesson->id);
         $previous = $index !== false && $index > 0 ? $lessons->get($index - 1) : null;
         $previousProgress = $previous ? LessonProgress::query()->where('user_id', $userId)->where('lesson_id', $previous->id)->where('is_completed', true)->first() : null;
-        if (in_array($lesson->unlock_type, ['sequential', 'sequential_scheduled'], true) && ! $previousProgress) return false;
+        if ($index !== false && $index > 0 && in_array($lesson->unlock_type, ['sequential', 'sequential_scheduled'], true) && ! $previousProgress) return false;
         if (in_array($lesson->unlock_type, ['scheduled', 'sequential_scheduled'], true)) {
             $availableAt = $lesson->unlock_at ?? ($previousProgress?->completed_at?->copy()->addHours($lesson->unlock_delay_hours ?? 0));
             return $availableAt && $availableAt->isPast();

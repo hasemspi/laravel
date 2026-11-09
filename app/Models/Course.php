@@ -17,6 +17,8 @@ class Course extends Model
     public function category(): BelongsTo { return $this->belongsTo(CourseCategory::class, 'course_category_id'); }
     public function trainers(): BelongsToMany { return $this->belongsToMany(User::class, 'course_trainer')->withTimestamps(); }
     public function modules(): HasMany { return $this->hasMany(CourseModule::class); }
+    public function batches(): HasMany { return $this->hasMany(CourseBatch::class); }
+    public function accessRule(): \Illuminate\Database\Eloquent\Relations\HasOne { return $this->hasOne(CourseAccessRule::class); }
     public function enrollments(): HasMany { return $this->hasMany(Enrollment::class); }
     public function payments(): HasMany { return $this->hasMany(Payment::class); }
 }
