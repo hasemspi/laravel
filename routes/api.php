@@ -1,22 +1,23 @@
 <?php
 
-use App\Http\Controllers\Api\AdminAuthController;
 use App\Http\Controllers\Api\AccountAuthController;
-use App\Http\Controllers\Api\AdminDashboardController;
-use App\Http\Controllers\Api\AdminUserController;
-use App\Http\Controllers\Api\RegistrationController;
-use App\Http\Controllers\Api\AdminCourseController;
-use App\Http\Controllers\Api\CheckoutController;
-use App\Http\Controllers\Api\PublicCourseController;
-use App\Http\Controllers\Api\AdminPaymentController;
-use App\Http\Controllers\Api\StudentLearningController;
-use App\Http\Controllers\Api\AdminCategoryController;
-use App\Http\Controllers\Api\CurriculumController;
+use App\Http\Controllers\Api\AdminAuthController;
 use App\Http\Controllers\Api\AdminBatchController;
+use App\Http\Controllers\Api\AdminCategoryController;
 use App\Http\Controllers\Api\AdminCourseAccessController;
+use App\Http\Controllers\Api\AdminCourseController;
+use App\Http\Controllers\Api\AdminCourseRatingController;
+use App\Http\Controllers\Api\AdminDashboardController;
 use App\Http\Controllers\Api\AdminEnrollmentAccessController;
-use App\Http\Controllers\Api\StudentBatchController;
+use App\Http\Controllers\Api\AdminPaymentController;
+use App\Http\Controllers\Api\AdminUserController;
+use App\Http\Controllers\Api\CheckoutController;
 use App\Http\Controllers\Api\CourseRatingController;
+use App\Http\Controllers\Api\CurriculumController;
+use App\Http\Controllers\Api\PublicCourseController;
+use App\Http\Controllers\Api\RegistrationController;
+use App\Http\Controllers\Api\StudentBatchController;
+use App\Http\Controllers\Api\StudentLearningController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('throttle:registration')->post('/register', [RegistrationController::class, 'store']);
@@ -25,6 +26,7 @@ Route::middleware('throttle:admin-login')->post('/admin/login', [AdminAuthContro
 
 Route::get('/courses', [PublicCourseController::class, 'index']);
 Route::get('/courses/{course:slug}', [PublicCourseController::class, 'show']);
+Route::get('/courses/{course:slug}/reviews', [PublicCourseController::class, 'reviews']);
 Route::get('/course-categories', [PublicCourseController::class, 'categories']);
 Route::middleware('throttle:registration')->post('/courses/{course:slug}/checkout', [CheckoutController::class, 'store']);
 
@@ -91,6 +93,8 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
     Route::put('/admin/courses/{course}', [AdminCourseController::class, 'update']);
     Route::post('/admin/courses/{course}/thumbnail', [AdminCourseController::class, 'uploadThumbnail']);
     Route::delete('/admin/courses/{course}', [AdminCourseController::class, 'destroy']);
+    Route::get('/admin/course-ratings', [AdminCourseRatingController::class, 'index']);
+    Route::patch('/admin/course-ratings/{courseRating}', [AdminCourseRatingController::class, 'update']);
     Route::get('/admin/courses/{course}/batches', [AdminBatchController::class, 'index']);
     Route::post('/admin/courses/{course}/batches', [AdminBatchController::class, 'store']);
     Route::get('/admin/courses/{course}/access-rules', [AdminCourseAccessController::class, 'show']);

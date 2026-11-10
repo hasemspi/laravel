@@ -20,8 +20,8 @@ class CourseRatingTest extends TestCase
         $second = User::factory()->create(['role' => 'student', 'status' => 'active']);
         Enrollment::query()->create(['user_id' => $first->id, 'course_id' => $course->id, 'status' => 'active', 'enrolled_at' => now()]);
         Enrollment::query()->create(['user_id' => $second->id, 'course_id' => $course->id, 'status' => 'completed', 'enrolled_at' => now()]);
-        CourseRating::query()->create(['course_id' => $course->id, 'user_id' => $first->id, 'rating' => 5]);
-        CourseRating::query()->create(['course_id' => $course->id, 'user_id' => $second->id, 'rating' => 4]);
+        CourseRating::query()->create(['course_id' => $course->id, 'user_id' => $first->id, 'rating' => 5, 'review' => 'Excellent course.', 'approval_status' => 'approved']);
+        CourseRating::query()->create(['course_id' => $course->id, 'user_id' => $second->id, 'rating' => 4, 'review' => 'Very useful lessons.', 'approval_status' => 'approved']);
 
         $this->getJson('/api/courses/'.$course->slug)
             ->assertOk()
@@ -49,7 +49,7 @@ class CourseRatingTest extends TestCase
         $this->actingAs($student)->postJson('/api/student/courses/'.$course->id.'/rating', ['rating' => 4, 'review' => 'Updated'])->assertOk();
 
         $this->assertSame(1, CourseRating::query()->where('course_id', $course->id)->where('user_id', $student->id)->count());
-        $this->assertDatabaseHas('course_ratings', ['course_id' => $course->id, 'user_id' => $student->id, 'rating' => 4, 'review' => 'Updated']);
+        $this->assertDatabaseHas('course_ratings', ['course_id' => $course->id, 'user_id' => $student->id, 'rating' => 4, 'review' => 'Updated', 'approval_status' => 'pending']);
     }
 
     public function test_manual_demo_student_count_overrides_verified_count_for_public_display(): void
@@ -58,6 +58,6 @@ class CourseRatingTest extends TestCase
         $student = User::factory()->create(['role' => 'student', 'status' => 'active']);
         Enrollment::query()->create(['user_id' => $student->id, 'course_id' => $course->id, 'status' => 'active', 'enrolled_at' => now()]);
 
-        $this->getJson('/api/courses/'.$course->slug)->assertOk()->assertJsonPath('course.total_students', 890)->assertJsonPath('course.average_rating', 4.8)->assertJsonPath('course.total_reviews', 124);
+        $this->getJson('/api/courses/'.$course->slug)->assertOk()->assertJsonPath('course.total_students', 890)->assertJsonPath('course.average_rating', 0)->assertJsonPath('course.total_reviews', 0);
     }
 }

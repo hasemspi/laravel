@@ -14,6 +14,7 @@ class CourseRatingController extends Controller
     public function show(Request $request, Course $course): JsonResponse
     {
         $this->verifiedEnrollment($request, $course);
+
         return response()->json(['rating' => CourseRating::query()->where('course_id', $course->id)->where('user_id', $request->user()->id)->first()]);
     }
 
@@ -27,7 +28,13 @@ class CourseRatingController extends Controller
 
         $rating = CourseRating::query()->updateOrCreate(
             ['course_id' => $course->id, 'user_id' => $request->user()->id],
-            ['rating' => $data['rating'], 'review' => $data['review'] ?? null],
+            [
+                'rating' => $data['rating'],
+                'review' => $data['review'] ?? null,
+                'approval_status' => 'pending',
+                'approved_by' => null,
+                'approved_at' => null,
+            ],
         );
 
         return response()->json(['message' => 'Your course rating has been saved.', 'rating' => $rating], $rating->wasRecentlyCreated ? 201 : 200);
@@ -36,6 +43,7 @@ class CourseRatingController extends Controller
     private function verifiedEnrollment(Request $request, Course $course): Enrollment
     {
         abort_unless($course->status === 'published', 404);
+
         return Enrollment::query()
             ->where('user_id', $request->user()->id)
             ->where('course_id', $course->id)
