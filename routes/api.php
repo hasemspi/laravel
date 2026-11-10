@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AccountAuthController;
+use App\Http\Controllers\Api\AdminAttendanceController;
 use App\Http\Controllers\Api\AdminAuthController;
 use App\Http\Controllers\Api\AdminBatchController;
 use App\Http\Controllers\Api\AdminCategoryController;
@@ -84,6 +85,8 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
     Route::get('/admin/me', [AdminAuthController::class, 'me']);
     Route::post('/admin/logout', [AdminAuthController::class, 'logout']);
     Route::get('/admin/dashboard', AdminDashboardController::class);
+    Route::get('/admin/attendance', [AdminAttendanceController::class, 'index']);
+    Route::get('/admin/attendance/{enrollment}', [AdminAttendanceController::class, 'show']);
     Route::get('/admin/users', [AdminUserController::class, 'index']);
     Route::post('/admin/users', [AdminUserController::class, 'store']);
     Route::patch('/admin/users/{user}', [AdminUserController::class, 'update']);
