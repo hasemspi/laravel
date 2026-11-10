@@ -47,6 +47,16 @@ return [
             'report' => false,
         ],
 
+        // Course uploads are served directly by the Next.js public directory
+        // in this monorepo. Existing Laravel storage paths remain supported.
+        'frontend_public' => [
+            'driver' => 'local',
+            'root' => env('FRONTEND_PUBLIC_PATH', base_path('../frontend/public')),
+            'visibility' => 'public',
+            'throw' => false,
+            'report' => false,
+        ],
+
         's3' => [
             'driver' => 's3',
             'key' => env('AWS_ACCESS_KEY_ID'),

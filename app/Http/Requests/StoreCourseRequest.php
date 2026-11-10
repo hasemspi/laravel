@@ -7,7 +7,11 @@ use Illuminate\Validation\Rule;
 
 class StoreCourseRequest extends FormRequest
 {
-    public function authorize(): bool { return $this->user()?->role === 'admin' && $this->user()?->status === 'active'; }
+    public function authorize(): bool
+    {
+        return $this->user()?->role === 'admin' && $this->user()?->status === 'active';
+    }
+
     public function rules(): array
     {
         return [
@@ -29,7 +33,7 @@ class StoreCourseRequest extends FormRequest
             'display_rating' => ['nullable', 'numeric', 'min:0', 'max:5'],
             'display_review_count' => ['nullable', 'integer', 'min:0', 'max:2147483647'],
             'trainer_ids' => ['sometimes', 'array'],
-            'trainer_ids.*' => ['integer', 'distinct', Rule::exists('users', 'id')->where('role', 'trainer')],
+            'trainer_ids.*' => ['integer', 'distinct', Rule::exists('users', 'id')->where(fn ($query) => $query->where('role', 'trainer')->where('status', 'active'))],
         ];
     }
 }

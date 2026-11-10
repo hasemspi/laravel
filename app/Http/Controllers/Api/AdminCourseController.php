@@ -9,7 +9,6 @@ use App\Models\Course;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
 class AdminCourseController extends Controller
@@ -50,6 +49,7 @@ class AdminCourseController extends Controller
         $course = DB::transaction(function () use ($validated, $trainerIds) {
             $course = Course::query()->create($validated);
             $course->trainers()->sync($trainerIds);
+
             return $course;
         });
 
@@ -84,13 +84,13 @@ class AdminCourseController extends Controller
             'thumbnail' => ['required', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ]);
 
-        $path = $data['thumbnail']->store('course-thumbnails', 'public');
-        $course->update(['thumbnail_path' => 'storage/'.$path]);
+        $path = $data['thumbnail']->store('images/course-thumbnails', 'frontend_public');
+        $course->update(['thumbnail_path' => $path]);
 
         return response()->json([
             'message' => 'Course thumbnail uploaded successfully.',
             'thumbnail_path' => $course->thumbnail_path,
-            'thumbnail_url' => Storage::disk('public')->url($path),
+            'thumbnail_url' => '/'.ltrim($path, '/'),
             'course' => $course->fresh(['category', 'trainers']),
         ]);
     }
@@ -98,6 +98,7 @@ class AdminCourseController extends Controller
     public function destroy(Course $course): JsonResponse
     {
         $course->delete();
+
         return response()->json(['message' => 'Course removed from the active catalog. Existing enrollment and payment records were retained.']);
     }
 }

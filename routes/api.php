@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\AdminCourseRatingController;
 use App\Http\Controllers\Api\AdminDashboardController;
 use App\Http\Controllers\Api\AdminEnrollmentAccessController;
 use App\Http\Controllers\Api\AdminPaymentController;
+use App\Http\Controllers\Api\AdminTrainerProfileController;
 use App\Http\Controllers\Api\AdminUserController;
 use App\Http\Controllers\Api\CheckoutController;
 use App\Http\Controllers\Api\CourseRatingController;
@@ -18,6 +19,7 @@ use App\Http\Controllers\Api\PublicCourseController;
 use App\Http\Controllers\Api\RegistrationController;
 use App\Http\Controllers\Api\StudentBatchController;
 use App\Http\Controllers\Api\StudentLearningController;
+use App\Http\Controllers\Api\TrainerProfileController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('throttle:registration')->post('/register', [RegistrationController::class, 'store']);
@@ -28,6 +30,8 @@ Route::get('/courses', [PublicCourseController::class, 'index']);
 Route::get('/courses/{course:slug}', [PublicCourseController::class, 'show']);
 Route::get('/courses/{course:slug}/reviews', [PublicCourseController::class, 'reviews']);
 Route::get('/course-categories', [PublicCourseController::class, 'categories']);
+Route::get('/trainers', [TrainerProfileController::class, 'index']);
+Route::get('/trainers/{user}', [TrainerProfileController::class, 'show']);
 Route::middleware('throttle:registration')->post('/courses/{course:slug}/checkout', [CheckoutController::class, 'store']);
 
 Route::middleware(['auth:sanctum', 'active'])->get('/user', [AccountAuthController::class, 'me']);
@@ -50,6 +54,8 @@ Route::middleware(['auth:sanctum', 'role:student'])->group(function () {
 });
 Route::middleware(['auth:sanctum', 'role:trainer'])->get('/trainer/me', [AccountAuthController::class, 'me']);
 Route::middleware(['auth:sanctum', 'role:trainer'])->group(function () {
+    Route::get('/trainer/profile', [TrainerProfileController::class, 'own']);
+    Route::post('/trainer/profile', [TrainerProfileController::class, 'update']);
     Route::get('/trainer/courses', [CurriculumController::class, 'trainerCourses']);
     Route::get('/trainer/courses/{course}/curriculum', [CurriculumController::class, 'show']);
     Route::post('/trainer/courses/{course}/modules', [CurriculumController::class, 'storeModule']);
@@ -82,6 +88,8 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
     Route::post('/admin/users', [AdminUserController::class, 'store']);
     Route::patch('/admin/users/{user}', [AdminUserController::class, 'update']);
     Route::delete('/admin/users/{user}', [AdminUserController::class, 'destroy']);
+    Route::get('/admin/trainer-profiles', [AdminTrainerProfileController::class, 'index']);
+    Route::patch('/admin/trainer-profiles/{trainerProfile}/verification', [AdminTrainerProfileController::class, 'verify']);
     Route::get('/categories', [AdminCategoryController::class, 'index']);
     Route::post('/categories', [AdminCategoryController::class, 'store']);
     Route::get('/categories/{category}', [AdminCategoryController::class, 'show']);
