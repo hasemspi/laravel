@@ -41,6 +41,7 @@ Route::get('/blog/featured', [PublicBlogController::class, 'featured']);
 Route::get('/blog/categories', [PublicBlogController::class, 'categories']);
 Route::get('/blog/popular', [PublicBlogController::class, 'popular']);
 Route::get('/blog', [PublicBlogController::class, 'index']);
+Route::post('/blog/{post:slug}/comments', [PublicBlogController::class, 'storeComment'])->middleware('throttle:10,1');
 Route::get('/blog/{post:slug}', [PublicBlogController::class, 'show']);
 Route::middleware('throttle:registration')->post('/courses/{course:slug}/checkout', [CheckoutController::class, 'store']);
 
@@ -112,12 +113,20 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
     Route::post('/admin/blog/posts', [AdminBlogController::class, 'storePost']);
     Route::put('/admin/blog/posts/{post}', [AdminBlogController::class, 'updatePost']);
     Route::delete('/admin/blog/posts/{post}', [AdminBlogController::class, 'destroyPost']);
+    Route::get('/admin/blog/comments', [AdminBlogController::class, 'comments']);
+    Route::patch('/admin/blog/comments/{comment}', [AdminBlogController::class, 'updateComment']);
+    Route::delete('/admin/blog/comments/{comment}', [AdminBlogController::class, 'destroyComment']);
     Route::get('/admin/blog/categories', [AdminBlogController::class, 'categories']);
     Route::post('/admin/blog/categories', [AdminBlogController::class, 'storeCategory']);
     Route::put('/admin/blog/categories/{category}', [AdminBlogController::class, 'updateCategory']);
     Route::delete('/admin/blog/categories/{category}', [AdminBlogController::class, 'destroyCategory']);
+    Route::get('/admin/blog/tags', [AdminBlogController::class, 'tags']);
+    Route::post('/admin/blog/tags', [AdminBlogController::class, 'storeTag']);
+    Route::put('/admin/blog/tags/{tag}', [AdminBlogController::class, 'updateTag']);
+    Route::delete('/admin/blog/tags/{tag}', [AdminBlogController::class, 'destroyTag']);
     Route::get('/admin/blog/widgets', [AdminBlogController::class, 'widgets']);
     Route::post('/admin/blog/widgets', [AdminBlogController::class, 'storeWidget']);
+    Route::post('/admin/blog/widgets/reorder', [AdminBlogController::class, 'reorderWidgets']);
     Route::put('/admin/blog/widgets/{widget}', [AdminBlogController::class, 'updateWidget']);
     Route::delete('/admin/blog/widgets/{widget}', [AdminBlogController::class, 'destroyWidget']);
     Route::patch('/admin/trainer-profiles/{trainerProfile}/verification', [AdminTrainerProfileController::class, 'verify']);

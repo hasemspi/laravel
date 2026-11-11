@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\BlogComment;
 use App\Models\BlogCategory;
 use App\Models\BlogPost;
 use App\Models\BlogWidget;
@@ -66,7 +67,7 @@ class PublicBlogController extends Controller
 
     public function show(BlogPost $post): JsonResponse
     {
-        abort_unless($post->status === 'published' && $post->published_at?->isPast(), 404);
+        abort_unless(in_array($post->status, ['published', 'scheduled'], true) && $post->published_at?->isPast(), 404);
 
         $post->load('category:id,name,slug');
         $post->increment('views');
@@ -83,9 +84,29 @@ class PublicBlogController extends Controller
         return response()->json([
             'post' => $this->postDetails($post),
             'related' => $related,
+            'comments' => $this->approvedComments($post),
             'widgets' => $this->widgets(),
             'ad_config' => $this->adConfig(),
         ]);
+    }
+
+    public function storeComment(Request $request, BlogPost $post): JsonResponse
+    {
+        abort_unless(in_array($post->status, ['published', 'scheduled'], true) && $post->published_at?->isPast(), 404);
+
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:120'],
+            'email' => ['nullable', 'email', 'max:180'],
+            'body' => ['required', 'string', 'max:2000'],
+        ]);
+
+        BlogComment::query()->create([
+            'blog_post_id' => $post->id,
+            ...$validated,
+            'status' => 'pending',
+        ]);
+
+        return response()->json(['message' => 'Your comment was submitted for moderation.'], 201);
     }
 
     private function publishedQuery()
@@ -176,6 +197,21 @@ class PublicBlogController extends Controller
             'content' => $post->content,
             'updated_at' => $post->updated_at?->toISOString(),
         ]);
+    }
+
+    private function approvedComments(BlogPost $post): Collection
+    {
+        return $post->comments()
+            ->where('status', 'approved')
+            ->latest()
+            ->get(['id', 'name', 'body', 'created_at'])
+            ->map(fn (BlogComment $comment) => [
+                'id' => $comment->id,
+                'name' => $comment->name,
+                'body' => $comment->body,
+                'created_at' => $comment->created_at?->toISOString(),
+            ])
+            ->values();
     }
 
     private function imageUrl(?string $path): ?string

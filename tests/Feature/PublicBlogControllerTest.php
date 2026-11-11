@@ -37,4 +37,33 @@ class PublicBlogControllerTest extends TestCase
 
         $this->getJson('/api/blog/'.$post->slug)->assertNotFound();
     }
+
+    public function test_scheduled_posts_are_available_as_single_posts_after_the_publish_time(): void
+    {
+        $post = BlogPost::factory()->create([
+            'status' => 'scheduled',
+            'published_at' => now()->subMinute(),
+        ]);
+
+        $this->getJson('/api/blog/'.$post->slug)
+            ->assertOk()
+            ->assertJsonPath('post.slug', $post->slug);
+    }
+
+    public function test_visitors_can_submit_comments_for_published_posts(): void
+    {
+        $post = BlogPost::factory()->create(['status' => 'published', 'published_at' => now()]);
+
+        $this->postJson('/api/blog/'.$post->slug.'/comments', [
+            'name' => 'Reader One',
+            'email' => 'reader@example.com',
+            'body' => 'Helpful article.',
+        ])->assertCreated()->assertJsonPath('message', 'Your comment was submitted for moderation.');
+
+        $this->assertDatabaseHas('blog_comments', [
+            'blog_post_id' => $post->id,
+            'name' => 'Reader One',
+            'status' => 'pending',
+        ]);
+    }
 }
