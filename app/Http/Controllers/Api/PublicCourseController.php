@@ -79,8 +79,41 @@ class PublicCourseController extends Controller
             'average_rating' => round((float) ($course->approved_positive_average_rating ?? 0), 1),
             'total_reviews' => (int) ($course->approved_positive_reviews_count ?? 0),
             'total_students' => (int) ($course->display_student_count ?? ($course->verified_enrollments_count ?: 890)),
-            'modules' => $course->modules->map(fn ($module) => ['id' => $module->id, 'title' => $module->title, 'description' => $module->description, 'lessons' => $module->lessons->map(fn ($lesson) => ['id' => $lesson->id, 'title' => $lesson->title, 'description' => $lesson->description, 'duration_seconds' => $lesson->duration_seconds, 'thumbnail_path' => $lesson->thumbnail_path])]),
+            'modules' => $this->publicCurriculum($course),
         ];
+    }
+
+    private function publicCurriculum(Course $course)
+    {
+        $previewIndex = 0;
+
+        return $course->modules->map(function ($module) use (&$previewIndex) {
+            $lessons = $module->lessons
+                ->filter(fn ($lesson) => filled($lesson->video_reference))
+                ->map(function ($lesson) use (&$previewIndex) {
+                    $isPreview = $previewIndex < 2;
+                    $previewIndex++;
+
+                    return [
+                        'id' => $lesson->id,
+                        'title' => $lesson->title,
+                        'duration_seconds' => $lesson->duration_seconds,
+                        'sort_order' => $lesson->sort_order,
+                        'is_preview' => $isPreview,
+                        // Only the first two videos may be played anonymously.
+                        'video_id' => $isPreview ? $lesson->video_reference : null,
+                    ];
+                })
+                ->values();
+
+            return [
+                'id' => $module->id,
+                'title' => $module->title,
+                'description' => $module->description,
+                'sort_order' => $module->sort_order,
+                'lessons' => $lessons,
+            ];
+        })->filter(fn ($module) => $module['lessons']->isNotEmpty())->values();
     }
 
     private function trainerSummary($trainer, Course $course): array
