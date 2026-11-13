@@ -18,7 +18,7 @@ class AdminCourseThumbnailTest extends TestCase
         Storage::fake('frontend_public');
         $admin = User::factory()->create(['role' => 'admin', 'status' => 'active']);
         $course = Course::query()->create(['title' => 'Image Course', 'slug' => 'image-course', 'short_description' => 'Course', 'price' => 100, 'status' => 'draft']);
-        $imagePath = dirname(base_path()).'/frontend/public/images/course-ai.png';
+        $imagePath = dirname(base_path()).'/frontend/public/images/course-ai.webp';
 
         $response = $this->actingAs($admin)->post('/api/admin/courses/'.$course->id.'/thumbnail', [
             'thumbnail' => new UploadedFile($imagePath, 'course-cover.png', 'image/png', null, true),
