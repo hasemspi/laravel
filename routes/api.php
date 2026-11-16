@@ -42,6 +42,7 @@ Route::get('/trainers/{user}', [TrainerProfileController::class, 'show']);
 Route::get('/blog/featured', [PublicBlogController::class, 'featured']);
 Route::get('/blog/categories', [PublicBlogController::class, 'categories']);
 Route::get('/blog/popular', [PublicBlogController::class, 'popular']);
+Route::get('/blog/images/{filename}', [AdminBlogController::class, 'image'])->where('filename', '[A-Za-z0-9._-]+');
 Route::get('/blog', [PublicBlogController::class, 'index']);
 Route::post('/blog/{post:slug}/comments', [PublicBlogController::class, 'storeComment'])->middleware('throttle:10,1');
 Route::get('/blog/{post:slug}', [PublicBlogController::class, 'show']);

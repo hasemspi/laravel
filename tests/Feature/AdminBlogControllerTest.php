@@ -4,9 +4,12 @@ namespace Tests\Feature;
 
 use App\Models\BlogCategory;
 use App\Models\BlogComment;
+use App\Models\BlogPost;
 use App\Models\BlogTag;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class AdminBlogControllerTest extends TestCase
@@ -49,6 +52,43 @@ class AdminBlogControllerTest extends TestCase
         $student = User::factory()->create(['role' => 'student', 'status' => 'active']);
 
         $this->actingAs($student)->getJson('/api/admin/blog/posts')->assertForbidden();
+    }
+
+    public function test_admin_can_upload_and_replace_persistent_blog_images_safely(): void
+    {
+        Storage::fake('public');
+        $admin = User::factory()->create(['role' => 'admin', 'status' => 'active']);
+        $category = BlogCategory::factory()->create();
+        $fixture = base_path('../frontend/public/images/trustygen-favicon.png');
+        $this->assertFileExists($fixture);
+
+        $firstUpload = $this->actingAs($admin)->post('/api/admin/blog/images', [
+            'image' => new UploadedFile($fixture, 'first.png', 'image/png', null, true),
+        ], ['Accept' => 'application/json'])->assertCreated();
+        $firstPath = $firstUpload->json('path');
+
+        $this->assertStringStartsWith('blogs/', $firstPath);
+        $this->assertStringContainsString('/storage/blogs/', $firstUpload->json('url'));
+        Storage::disk('public')->assertExists($firstPath);
+
+        $firstPost = BlogPost::factory()->for($category, 'category')->create(['image_path' => $firstPath]);
+        $secondPost = BlogPost::factory()->for($category, 'category')->create(['image_path' => $firstPath]);
+
+        $secondUpload = $this->actingAs($admin)->post('/api/admin/blog/images', [
+            'image' => new UploadedFile($fixture, 'second.png', 'image/png', null, true),
+        ], ['Accept' => 'application/json'])->assertCreated();
+        $secondPath = $secondUpload->json('path');
+
+        $this->actingAs($admin)->putJson('/api/admin/blog/posts/'.$firstPost->id, [
+            'image_path' => $secondPath,
+        ])->assertOk();
+        Storage::disk('public')->assertExists($firstPath);
+
+        $this->actingAs($admin)->putJson('/api/admin/blog/posts/'.$secondPost->id, [
+            'image_path' => $secondPath,
+        ])->assertOk();
+        Storage::disk('public')->assertMissing($firstPath);
+        Storage::disk('public')->assertExists($secondPath);
     }
 
     public function test_admin_can_manage_tags_scheduled_posts_and_widget_order(): void

@@ -12,6 +12,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
@@ -20,19 +21,33 @@ class AdminBlogController extends Controller
     public function uploadImage(Request $request): JsonResponse
     {
         $request->validate([
-            'image' => ['required', 'file', 'image', 'mimes:jpg,jpeg,png,webp,gif', 'max:5120'],
+            'image' => ['required', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ]);
 
-        $directory = dirname(base_path()).DIRECTORY_SEPARATOR.'frontend'.DIRECTORY_SEPARATOR.'public'.DIRECTORY_SEPARATOR.'images'.DIRECTORY_SEPARATOR.'blog';
-        File::ensureDirectoryExists($directory);
         $image = $request->file('image');
         $filename = Str::uuid().'.'.$image->extension();
-        $image->move($directory, $filename);
+        $storedPath = $image->storeAs('blogs', $filename, 'public');
+        abort_unless($storedPath, 500, 'The blog image could not be stored.');
+
+        $url = $this->publicStorageUrl($storedPath);
 
         return response()->json([
             'message' => 'Image uploaded successfully.',
-            'path' => '/images/blog/'.$filename,
+            'path' => $storedPath,
+            'url' => $url,
         ], 201);
+    }
+
+    public function image(string $filename)
+    {
+        abort_unless(preg_match('/^[A-Za-z0-9][A-Za-z0-9._-]*$/', $filename) === 1, 404);
+
+        $path = Storage::disk('frontend_public')->path('images/blog/'.$filename);
+        abort_unless(File::isFile($path), 404);
+
+        return response()->file($path, [
+            'Cache-Control' => 'public, max-age=31536000, immutable',
+        ]);
     }
 
     public function posts(Request $request): JsonResponse
@@ -55,12 +70,14 @@ class AdminBlogController extends Controller
             ->paginate($filters['per_page'] ?? 10)
             ->withQueryString();
 
+        $posts->getCollection()->transform(fn (BlogPost $post) => $this->normalisePostImage($post));
+
         return response()->json($posts);
     }
 
     public function post(BlogPost $post): JsonResponse
     {
-        return response()->json(['post' => $post->load(['category:id,name,slug', 'tags:id,name,slug'])]);
+        return response()->json(['post' => $this->normalisePostImage($post->load(['category:id,name,slug', 'tags:id,name,slug']))]);
     }
 
     public function storePost(Request $request): JsonResponse
@@ -76,11 +93,14 @@ class AdminBlogController extends Controller
         }
         $post->load(['category:id,name,slug', 'tags:id,name,slug']);
 
+        $this->normalisePostImage($post);
+
         return response()->json(['message' => 'Blog post created successfully.', 'post' => $post], 201);
     }
 
     public function updatePost(Request $request, BlogPost $post): JsonResponse
     {
+        $previousImagePath = $post->image_path;
         $validated = $this->validatedPost($request, $post);
         $tagIds = $validated['tags'] ?? null;
         unset($validated['tags']);
@@ -92,7 +112,11 @@ class AdminBlogController extends Controller
             $post->tags()->sync($tagIds);
         }
 
-        return response()->json(['message' => 'Blog post updated successfully.', 'post' => $post->fresh()->load(['category:id,name,slug', 'tags:id,name,slug'])]);
+        if (array_key_exists('image_path', $validated) && $this->storageReference($previousImagePath) !== $this->storageReference($post->image_path)) {
+            $this->deleteImageIfUnused($previousImagePath, $post->id);
+        }
+
+        return response()->json(['message' => 'Blog post updated successfully.', 'post' => $this->normalisePostImage($post->fresh()->load(['category:id,name,slug', 'tags:id,name,slug']))]);
     }
 
     public function destroyPost(BlogPost $post): JsonResponse
@@ -320,6 +344,94 @@ class AdminBlogController extends Controller
         }
 
         return $validated;
+    }
+
+    private function normalisePostImage(BlogPost $post): BlogPost
+    {
+        $post->setAttribute('image_path', $this->imageUrl($post->image_path));
+
+        return $post;
+    }
+
+    private function imageUrl(?string $path): ?string
+    {
+        if (! $path) {
+            return null;
+        }
+
+        $reference = $this->storageReference($path);
+
+        if ($reference && $reference['disk'] === 'public') {
+            return $this->publicStorageUrl($reference['path']);
+        }
+
+        if ($reference && $reference['disk'] === 'frontend_public') {
+            return url('/api/blog/images/'.rawurlencode(basename($reference['path'])));
+        }
+
+        if (Str::startsWith($path, ['http://', 'https://'])) {
+            return $path;
+        }
+
+        return url('/'.ltrim($path, '/'));
+    }
+
+    private function publicStorageUrl(string $path): string
+    {
+        $storageUrl = Storage::disk('public')->url($path);
+
+        return Str::startsWith($storageUrl, ['http://', 'https://'])
+            ? $storageUrl
+            : url($storageUrl);
+    }
+
+    private function storageReference(?string $value): ?array
+    {
+        if (! $value) {
+            return null;
+        }
+
+        $path = parse_url($value, PHP_URL_PATH) ?: $value;
+
+        if (Str::startsWith($path, '/storage/blogs/')) {
+            return ['disk' => 'public', 'path' => ltrim(Str::after($path, '/storage/'), '/')];
+        }
+
+        if (Str::startsWith($path, 'blogs/')) {
+            return ['disk' => 'public', 'path' => $path];
+        }
+
+        if (Str::startsWith($path, 'storage/blogs/')) {
+            return ['disk' => 'public', 'path' => Str::after($path, 'storage/')];
+        }
+
+        if (Str::startsWith($path, '/images/blog/')) {
+            return ['disk' => 'frontend_public', 'path' => ltrim($path, '/')];
+        }
+
+        if (Str::startsWith($path, '/api/blog/images/')) {
+            return ['disk' => 'frontend_public', 'path' => 'images/blog/'.basename($path)];
+        }
+
+        return null;
+    }
+
+    private function deleteImageIfUnused(?string $value, int $exceptPostId): void
+    {
+        $reference = $this->storageReference($value);
+        if (! $reference) {
+            return;
+        }
+
+        $isReferenced = BlogPost::query()
+            ->whereKeyNot($exceptPostId)
+            ->whereNotNull('image_path')
+            ->pluck('image_path')
+            ->contains(fn ($path) => $this->storageReference($path) === $reference);
+
+        if (! $isReferenced) {
+            Storage::disk($reference['disk'])->delete($reference['path']);
+        }
     }
 
     private function validatedCategory(Request $request, ?BlogCategory $category = null): array

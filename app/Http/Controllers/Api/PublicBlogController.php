@@ -10,6 +10,7 @@ use App\Models\BlogWidget;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class PublicBlogController extends Controller
@@ -194,7 +195,7 @@ class PublicBlogController extends Controller
     private function postDetails(BlogPost $post): array
     {
         return array_merge($this->postSummary($post), [
-            'content' => $post->content,
+            'content' => $this->contentWithImageUrls($post->content),
             'updated_at' => $post->updated_at?->toISOString(),
         ]);
     }
@@ -220,11 +221,50 @@ class PublicBlogController extends Controller
             return null;
         }
 
-        if (Str::startsWith($path, '/images/blog/')) {
-            return rtrim((string) env('FRONTEND_URL', 'http://localhost:3000'), '/').'/'.ltrim($path, '/');
+        $assetPath = parse_url($path, PHP_URL_PATH) ?: $path;
+
+        if (Str::startsWith($assetPath, '/storage/blogs/')) {
+            $storagePath = ltrim(Str::after($assetPath, '/storage/'), '/');
+            $storageUrl = Storage::disk('public')->url($storagePath);
+
+            return Str::startsWith($storageUrl, ['http://', 'https://']) ? $storageUrl : url($storageUrl);
+        }
+
+        if (Str::startsWith($assetPath, 'blogs/')) {
+            $storageUrl = Storage::disk('public')->url($assetPath);
+
+            return Str::startsWith($storageUrl, ['http://', 'https://']) ? $storageUrl : url($storageUrl);
+        }
+
+        if (Str::startsWith($assetPath, 'storage/blogs/')) {
+            $storageUrl = Storage::disk('public')->url(Str::after($assetPath, 'storage/'));
+
+            return Str::startsWith($storageUrl, ['http://', 'https://']) ? $storageUrl : url($storageUrl);
+        }
+
+        if (Str::startsWith($assetPath, '/images/blog/')) {
+            return url('/api/blog/images/'.rawurlencode(basename($assetPath)));
         }
 
         return Str::startsWith($path, ['http://', 'https://']) ? $path : url('/'.ltrim($path, '/'));
+    }
+
+    private function contentWithImageUrls(?string $content): ?string
+    {
+        if (! $content) {
+            return $content;
+        }
+
+        return preg_replace_callback('/(src\s*=\s*["\'])([^"\']+)(["\'])/i', function (array $matches) {
+            $source = $matches[2];
+            $path = parse_url($source, PHP_URL_PATH) ?: $source;
+
+            if (! Str::startsWith($path, '/images/blog/')) {
+                return $matches[0];
+            }
+
+            return $matches[1].$this->imageUrl($path).$matches[3];
+        }, $content);
     }
 
     private function adConfig(): array
