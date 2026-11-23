@@ -22,4 +22,5 @@ class Course extends Model
     public function enrollments(): HasMany { return $this->hasMany(Enrollment::class); }
     public function payments(): HasMany { return $this->hasMany(Payment::class); }
     public function ratings(): HasMany { return $this->hasMany(CourseRating::class); }
+    public function announcements(): HasMany { return $this->hasMany(Announcement::class); }
 }

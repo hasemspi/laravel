@@ -16,6 +16,8 @@ use App\Http\Controllers\Api\AdminPaymentController;
 use App\Http\Controllers\Api\AdminTrainerProfileController;
 use App\Http\Controllers\Api\AdminUserController;
 use App\Http\Controllers\Api\AdminContactMessageController;
+use App\Http\Controllers\Api\AdminAnnouncementController;
+use App\Http\Controllers\Api\AnnouncementController;
 use App\Http\Controllers\Api\CheckoutController;
 use App\Http\Controllers\Api\CourseRatingController;
 use App\Http\Controllers\Api\CurriculumController;
@@ -53,6 +55,13 @@ Route::middleware(['auth:sanctum', 'active'])->get('/user', [AccountAuthControll
 Route::middleware('auth:sanctum')->post('/logout', [AccountAuthController::class, 'logout']);
 
 Route::middleware(['auth:sanctum', 'role:student'])->get('/student/me', [AccountAuthController::class, 'me']);
+Route::middleware(['auth:sanctum', 'role:student'])->group(function () {
+    Route::post('/student/profile', [AccountAuthController::class, 'updateProfile']);
+    Route::post('/student/password', [AccountAuthController::class, 'updatePassword']);
+    Route::get('/student/announcements', [AnnouncementController::class, 'index']);
+    Route::get('/student/announcements/unread-count', [AnnouncementController::class, 'unreadCount']);
+    Route::post('/student/announcements/{announcement}/read', [AnnouncementController::class, 'markRead']);
+});
 Route::middleware(['auth:sanctum', 'role:student'])->get('/student/dashboard', [StudentLearningController::class, 'dashboard']);
 Route::middleware(['auth:sanctum', 'role:student'])->get('/student/courses', [StudentLearningController::class, 'courses']);
 Route::middleware(['auth:sanctum', 'role:student'])->get('/student/courses/{course}', [StudentLearningController::class, 'course']);
@@ -69,6 +78,9 @@ Route::middleware(['auth:sanctum', 'role:student'])->group(function () {
 });
 Route::middleware(['auth:sanctum', 'role:trainer'])->get('/trainer/me', [AccountAuthController::class, 'me']);
 Route::middleware(['auth:sanctum', 'role:trainer'])->group(function () {
+    Route::get('/trainer/announcements', [AnnouncementController::class, 'index']);
+    Route::get('/trainer/announcements/unread-count', [AnnouncementController::class, 'unreadCount']);
+    Route::post('/trainer/announcements/{announcement}/read', [AnnouncementController::class, 'markRead']);
     Route::get('/trainer/profile', [TrainerProfileController::class, 'own']);
     Route::post('/trainer/profile', [TrainerProfileController::class, 'update']);
     Route::get('/trainer/courses', [CurriculumController::class, 'trainerCourses']);
@@ -106,6 +118,11 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
     Route::post('/admin/navigation/reorder', [AdminNavigationController::class, 'reorder']);
     Route::get('/admin/attendance', [AdminAttendanceController::class, 'index']);
     Route::get('/admin/contact-messages', [AdminContactMessageController::class, 'index']);
+    Route::get('/admin/announcements', [AdminAnnouncementController::class, 'index']);
+    Route::post('/admin/announcements', [AdminAnnouncementController::class, 'store']);
+    Route::get('/admin/announcements/{announcement}', [AdminAnnouncementController::class, 'show']);
+    Route::put('/admin/announcements/{announcement}', [AdminAnnouncementController::class, 'update']);
+    Route::delete('/admin/announcements/{announcement}', [AdminAnnouncementController::class, 'destroy']);
     Route::get('/admin/contact-messages/{contactMessage}', [AdminContactMessageController::class, 'show']);
     Route::get('/admin/attendance/{enrollment}', [AdminAttendanceController::class, 'show']);
     Route::get('/admin/users', [AdminUserController::class, 'index']);
