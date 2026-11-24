@@ -21,7 +21,7 @@ class PublicBlogController extends Controller
             'search' => ['nullable', 'string', 'max:150'],
             'category' => ['nullable', 'string', 'max:140'],
             'page' => ['sometimes', 'integer', 'min:1'],
-            'per_page' => ['sometimes', 'integer', 'in:6'],
+            'per_page' => ['sometimes', 'integer', 'in:12'],
         ]);
 
         $posts = $this->publishedQuery()
@@ -37,7 +37,7 @@ class PublicBlogController extends Controller
             ))
             ->latest('published_at')
             ->latest('id')
-            ->paginate(6)
+            ->paginate($filters['per_page'] ?? 12)
             ->withQueryString();
 
         $posts->getCollection()->transform(fn (BlogPost $post) => $this->postSummary($post));
