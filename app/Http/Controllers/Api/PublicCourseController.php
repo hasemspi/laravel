@@ -21,8 +21,9 @@ class PublicCourseController extends Controller
             ->latest()->paginate($filters['per_page'] ?? 12);
 
         $courses->getCollection()->transform(function (Course $course) {
-            $course->setAttribute('average_rating', round((float) ($course->approved_positive_average_rating ?? 0), 1));
-            $course->setAttribute('total_reviews', (int) ($course->approved_positive_reviews_count ?? 0));
+            $ratingData = $this->ratingData($course);
+            $course->setAttribute('average_rating', $ratingData['average_rating']);
+            $course->setAttribute('total_reviews', $ratingData['total_reviews']);
             $course->setAttribute('total_students', (int) ($course->display_student_count ?? ($course->verified_enrollments_count ?: 890)));
             $course->setRelation('trainers', $course->trainers->map(fn ($trainer) => $this->trainerSummary($trainer, $course))->values());
 
@@ -76,8 +77,7 @@ class PublicCourseController extends Controller
             'level' => $course->level, 'is_featured' => $course->is_featured, 'duration_minutes' => $course->duration_minutes,
             'thumbnail_path' => $course->thumbnail_path, 'benefits' => $course->benefits, 'category' => $course->category,
             'trainers' => $course->trainers->map(fn ($trainer) => $this->trainerSummary($trainer, $course))->values(),
-            'average_rating' => round((float) ($course->approved_positive_average_rating ?? 0), 1),
-            'total_reviews' => (int) ($course->approved_positive_reviews_count ?? 0),
+            ...$this->ratingData($course),
             'total_students' => (int) ($course->display_student_count ?? ($course->verified_enrollments_count ?: 890)),
             'modules' => $this->publicCurriculum($course),
         ];
@@ -114,6 +114,23 @@ class PublicCourseController extends Controller
                 'lessons' => $lessons,
             ];
         })->filter(fn ($module) => $module['lessons']->isNotEmpty())->values();
+    }
+
+    private function ratingData(Course $course): array
+    {
+        $approvedReviews = (int) ($course->approved_positive_reviews_count ?? 0);
+
+        if ($approvedReviews > 0) {
+            return [
+                'average_rating' => round((float) ($course->approved_positive_average_rating ?? 0), 1),
+                'total_reviews' => $approvedReviews,
+            ];
+        }
+
+        return [
+            'average_rating' => round((float) ($course->display_rating ?? 0), 1),
+            'total_reviews' => (int) ($course->display_review_count ?? 0),
+        ];
     }
 
     private function trainerSummary($trainer, Course $course): array

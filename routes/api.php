@@ -30,6 +30,7 @@ use App\Http\Controllers\Api\RegistrationController;
 use App\Http\Controllers\Api\StudentBatchController;
 use App\Http\Controllers\Api\StudentLearningController;
 use App\Http\Controllers\Api\TrainerProfileController;
+use App\Http\Controllers\Api\WebsiteVideoController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('throttle:registration')->post('/register', [RegistrationController::class, 'store']);
@@ -45,6 +46,7 @@ Route::get('/trainers', [TrainerProfileController::class, 'index']);
 Route::get('/trainers/{user}', [TrainerProfileController::class, 'show']);
 Route::get('/success-stories', [PublicSuccessStoryController::class, 'index']);
 Route::get('/success-stories/{successStory}', [PublicSuccessStoryController::class, 'show']);
+Route::get('/website-video', [WebsiteVideoController::class, 'publicVideo']);
 Route::get('/blog/featured', [PublicBlogController::class, 'featured']);
 Route::get('/blog/categories', [PublicBlogController::class, 'categories']);
 Route::get('/blog/popular', [PublicBlogController::class, 'popular']);
@@ -115,6 +117,8 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
     Route::get('/admin/me', [AdminAuthController::class, 'me']);
     Route::post('/admin/logout', [AdminAuthController::class, 'logout']);
     Route::get('/admin/dashboard', AdminDashboardController::class);
+    Route::get('/admin/website-video', [WebsiteVideoController::class, 'show']);
+    Route::match(['post', 'put'], '/admin/website-video', [WebsiteVideoController::class, 'update']);
     Route::get('/admin/navigation', [AdminNavigationController::class, 'index']);
     Route::post('/admin/navigation', [AdminNavigationController::class, 'store']);
     Route::patch('/admin/navigation/{navigationItem}', [AdminNavigationController::class, 'update']);

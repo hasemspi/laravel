@@ -9,6 +9,7 @@ use App\Models\Course;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
 class AdminCourseController extends Controller
@@ -84,13 +85,18 @@ class AdminCourseController extends Controller
             'thumbnail' => ['required', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ]);
 
-        $path = $data['thumbnail']->store('images/course-thumbnails', 'frontend_public');
+        $previousPath = $course->thumbnail_path;
+        $path = $data['thumbnail']->store('course-thumbnails', 'public');
         $course->update(['thumbnail_path' => $path]);
+
+        if ($previousPath && str_starts_with($previousPath, 'course-thumbnails/')) {
+            Storage::disk('public')->delete($previousPath);
+        }
 
         return response()->json([
             'message' => 'Course thumbnail uploaded successfully.',
             'thumbnail_path' => $course->thumbnail_path,
-            'thumbnail_url' => '/'.ltrim($path, '/'),
+            'thumbnail_url' => Storage::disk('public')->url($path),
             'course' => $course->fresh(['category', 'trainers']),
         ]);
     }

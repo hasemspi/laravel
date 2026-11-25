@@ -15,7 +15,7 @@ class AdminCourseThumbnailTest extends TestCase
 
     public function test_admin_can_upload_a_public_course_thumbnail(): void
     {
-        Storage::fake('frontend_public');
+        Storage::fake('public');
         $admin = User::factory()->create(['role' => 'admin', 'status' => 'active']);
         $course = Course::query()->create(['title' => 'Image Course', 'slug' => 'image-course', 'short_description' => 'Course', 'price' => 100, 'status' => 'draft']);
         $imagePath = dirname(base_path()).'/frontend/public/images/course-ai.webp';
@@ -25,8 +25,8 @@ class AdminCourseThumbnailTest extends TestCase
         ]);
 
         $response->assertOk();
-        $this->assertStringStartsWith('images/course-thumbnails/', (string) $response->json('course.thumbnail_path'));
+        $this->assertStringStartsWith('course-thumbnails/', (string) $response->json('course.thumbnail_path'));
         $path = $course->fresh()->thumbnail_path;
-        Storage::disk('frontend_public')->assertExists($path);
+        Storage::disk('public')->assertExists($path);
     }
 }
