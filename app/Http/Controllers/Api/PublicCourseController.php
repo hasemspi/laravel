@@ -76,6 +76,7 @@ class PublicCourseController extends Controller
             'description' => $course->description, 'price' => $course->price, 'discount_price' => $course->discount_price,
             'level' => $course->level, 'is_featured' => $course->is_featured, 'duration_minutes' => $course->duration_minutes,
             'thumbnail_path' => $course->thumbnail_path, 'benefits' => $course->benefits, 'category' => $course->category,
+            'display_rating' => $course->display_rating, 'display_review_count' => $course->display_review_count,
             'trainers' => $course->trainers->map(fn ($trainer) => $this->trainerSummary($trainer, $course))->values(),
             ...$this->ratingData($course),
             'total_students' => (int) ($course->display_student_count ?? ($course->verified_enrollments_count ?: 890)),
