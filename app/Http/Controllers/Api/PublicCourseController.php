@@ -24,7 +24,7 @@ class PublicCourseController extends Controller
             $ratingData = $this->ratingData($course);
             $course->setAttribute('average_rating', $ratingData['average_rating']);
             $course->setAttribute('total_reviews', $ratingData['total_reviews']);
-            $course->setAttribute('total_students', (int) ($course->display_student_count ?? ($course->verified_enrollments_count ?: 890)));
+            $course->setAttribute('total_students', $this->studentCount($course));
             $course->setRelation('trainers', $course->trainers->map(fn ($trainer) => $this->trainerSummary($trainer, $course))->values());
 
             return $course;
@@ -57,10 +57,15 @@ class PublicCourseController extends Controller
         $reviews = $reviewQuery->paginate($filters['per_page'] ?? 10)->withQueryString();
 
         $summary = CourseRating::query()->whereBelongsTo($course)->approvedPositive()->verifiedEnrolledStudent();
+        $ratingData = $this->ratingSummary(
+            $course,
+            (float) ($summary->clone()->avg('rating') ?? 0),
+            (int) $summary->clone()->count(),
+        );
 
         return response()->json(array_merge($reviews->toArray(), [
-            'average_rating' => round((float) $summary->clone()->avg('rating'), 1),
-            'total_reviews' => (int) $summary->count(),
+            'average_rating' => $ratingData['average_rating'],
+            'total_reviews' => $ratingData['total_reviews'],
         ]));
     }
 
@@ -79,7 +84,7 @@ class PublicCourseController extends Controller
             'display_rating' => $course->display_rating, 'display_review_count' => $course->display_review_count,
             'trainers' => $course->trainers->map(fn ($trainer) => $this->trainerSummary($trainer, $course))->values(),
             ...$this->ratingData($course),
-            'total_students' => (int) ($course->display_student_count ?? ($course->verified_enrollments_count ?: 890)),
+            'total_students' => $this->studentCount($course),
             'modules' => $this->publicCurriculum($course),
         ];
     }
@@ -120,18 +125,45 @@ class PublicCourseController extends Controller
     private function ratingData(Course $course): array
     {
         $approvedReviews = (int) ($course->approved_positive_reviews_count ?? 0);
+        $approvedAverage = (float) ($course->approved_positive_average_rating ?? 0);
+
+        return $this->ratingSummary($course, $approvedAverage, $approvedReviews);
+    }
+
+    private function ratingSummary(Course $course, float $approvedAverage, int $approvedReviews): array
+    {
+        $demoReviews = (int) ($course->display_review_count ?? 0);
+        $demoRating = $course->display_rating === null
+            ? null
+            : (float) $course->display_rating;
+        $totalReviews = $demoReviews + $approvedReviews;
 
         if ($approvedReviews > 0) {
+            $averageRating = $approvedReviews > 0 && $demoReviews > 0 && $demoRating !== null
+                ? (($demoRating * $demoReviews) + ($approvedAverage * $approvedReviews)) / $totalReviews
+                : $approvedAverage;
+
             return [
-                'average_rating' => round((float) ($course->approved_positive_average_rating ?? 0), 1),
-                'total_reviews' => $approvedReviews,
+                'average_rating' => round($averageRating, 1),
+                'total_reviews' => $totalReviews,
             ];
         }
 
         return [
-            'average_rating' => round((float) ($course->display_rating ?? 0), 1),
-            'total_reviews' => (int) ($course->display_review_count ?? 0),
+            'average_rating' => round($demoRating ?? 0, 1),
+            'total_reviews' => $demoReviews,
         ];
+    }
+
+    private function studentCount(Course $course): int
+    {
+        $verifiedEnrollments = (int) ($course->verified_enrollments_count ?? 0);
+
+        if ($course->display_student_count !== null) {
+            return (int) $course->display_student_count + $verifiedEnrollments;
+        }
+
+        return $verifiedEnrollments ?: 890;
     }
 
     private function trainerSummary($trainer, Course $course): array
