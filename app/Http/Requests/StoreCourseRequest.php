@@ -19,7 +19,7 @@ class StoreCourseRequest extends FormRequest
             'title' => ['required', 'string', 'max:180'],
             'slug' => ['required', 'string', 'max:200', 'alpha_dash', 'unique:courses,slug'],
             'short_description' => ['required', 'string', 'max:1000'],
-            'description' => ['nullable', 'string', 'max:50000'],
+            'description' => ['nullable', 'string'],
             'price' => ['required', 'numeric', 'min:0', 'max:99999999.99'],
             'discount_price' => ['nullable', 'numeric', 'min:0', 'max:99999999.99', 'lte:price'],
             'level' => ['required', Rule::in(['beginner', 'intermediate', 'advanced', 'all_levels'])],
